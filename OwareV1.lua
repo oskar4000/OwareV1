@@ -262,7 +262,7 @@ local function createGUI()
         return defaultValue
     end
 
-    -- Create color picker function
+    -- Create color picker function with improved color wheel
     local function createColorOption(name, text, defaultColor, yPosition, callback)
         local optionFrame = Instance.new("Frame")
         optionFrame.Name = name .. "Option"
@@ -292,21 +292,29 @@ local function createGUI()
         colorButton.Parent = optionFrame
 
         colorButton.MouseButton1Click:Connect(function()
+            -- Destroy existing color picker if it exists
+            if colorButton:FindFirstChild("ColorPicker") then
+                colorButton.ColorPicker:Destroy()
+                return
+            end
+
             local colorPicker = Instance.new("Frame")
             colorPicker.Name = "ColorPicker"
-            colorPicker.Size = UDim2.new(0, 150, 0, 150)
+            colorPicker.Size = UDim2.new(0, 200, 0, 220)
             colorPicker.Position = UDim2.new(0, 0, 1, 5)
-            colorPicker.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+            colorPicker.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
             colorPicker.BorderSizePixel = 0
+            colorPicker.ZIndex = 10
             colorPicker.Parent = colorButton
 
-            local hueSlider = Instance.new("Frame")
-            hueSlider.Name = "HueSlider"
-            hueSlider.Size = UDim2.new(0, 20, 0, 130)
-            hueSlider.Position = UDim2.new(1, -25, 0, 10)
-            hueSlider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            hueSlider.BorderSizePixel = 0
-            hueSlider.Parent = colorPicker
+            -- Hue gradient (rainbow spectrum)
+            local hueFrame = Instance.new("Frame")
+            hueFrame.Size = UDim2.new(0, 180, 0, 20)
+            hueFrame.Position = UDim2.new(0.5, -90, 0, 10)
+            hueFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+            hueFrame.BorderSizePixel = 0
+            hueFrame.ZIndex = 11
+            hueFrame.Parent = colorPicker
 
             local hueGradient = Instance.new("UIGradient")
             hueGradient.Color = ColorSequence.new({
@@ -318,117 +326,159 @@ local function createGUI()
                 ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 255, 0)),
                 ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
             })
-            hueGradient.Rotation = 90
-            hueGradient.Parent = hueSlider
+            hueGradient.Rotation = 0
+            hueGradient.Parent = hueFrame
 
-            local colorSquare = Instance.new("Frame")
-            colorSquare.Name = "ColorSquare"
-            colorSquare.Size = UDim2.new(0, 100, 0, 100)
-            colorSquare.Position = UDim2.new(0, 10, 0, 10)
-            colorSquare.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-            colorSquare.BorderSizePixel = 0
-            colorSquare.Parent = colorPicker
+            -- Saturation/Value square
+            local svFrame = Instance.new("Frame")
+            svFrame.Size = UDim2.new(0, 180, 0, 180)
+            svFrame.Position = UDim2.new(0.5, -90, 0, 35)
+            svFrame.BackgroundColor3 = defaultColor
+            svFrame.BorderSizePixel = 0
+            svFrame.ZIndex = 11
+            svFrame.Parent = colorPicker
 
             local saturationGradient = Instance.new("UIGradient")
             saturationGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
+                ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+                ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1))
             })
-            saturationGradient.Parent = colorSquare
+            saturationGradient.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0),
+                NumberSequenceKeypoint.new(1, 1)
+            })
+            saturationGradient.Rotation = 0
+            saturationGradient.Parent = svFrame
 
             local valueGradient = Instance.new("UIGradient")
             valueGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
+                ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)),
                 ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))
             })
             valueGradient.Transparency = NumberSequence.new({
                 NumberSequenceKeypoint.new(0, 1),
                 NumberSequenceKeypoint.new(1, 0)
             })
-            valueGradient.Parent = colorSquare
+            valueGradient.Rotation = 90
+            valueGradient.Parent = svFrame
 
-            local selector = Instance.new("Frame")
-            selector.Name = "Selector"
-            selector.Size = UDim2.new(0, 5, 0, 5)
-            selector.Position = UDim2.new(0, 50, 0, 50)
-            selector.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            selector.BorderSizePixel = 1
-            selector.BorderColor3 = Color3.fromRGB(0, 0, 0)
-            selector.Parent = colorSquare
-
+            -- Selectors
             local hueSelector = Instance.new("Frame")
-            hueSelector.Name = "HueSelector"
-            hueSelector.Size = UDim2.new(0, 15, 0, 3)
-            hueSelector.Position = UDim2.new(0, 2, 0, 50)
-            hueSelector.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            hueSelector.Size = UDim2.new(0, 5, 0, 20)
+            hueSelector.Position = UDim2.new(0, 0, 0, 0)
+            hueSelector.BackgroundColor3 = Color3.new(1, 1, 1)
             hueSelector.BorderSizePixel = 1
-            hueSelector.BorderColor3 = Color3.fromRGB(0, 0, 0)
-            hueSelector.Parent = hueSlider
+            hueSelector.BorderColor3 = Color3.new(0, 0, 0)
+            hueSelector.ZIndex = 12
+            hueSelector.Parent = hueFrame
 
-            local currentHue = 0
-            local currentSaturation = 1
-            local currentValue = 1
+            local svSelector = Instance.new("Frame")
+            svSelector.Size = UDim2.new(0, 5, 0, 5)
+            svSelector.Position = UDim2.new(0, 0, 0, 0)
+            svSelector.BackgroundColor3 = Color3.new(1, 1, 1)
+            svSelector.BorderSizePixel = 1
+            svSelector.BorderColor3 = Color3.new(0, 0, 0)
+            svSelector.ZIndex = 12
+            svSelector.Parent = svFrame
 
-            local function updateColor()
-                local color = Color3.fromHSV(currentHue, currentSaturation, currentValue)
-                colorButton.BackgroundColor3 = color
-                if callback then callback(color) end
+            -- Current color preview
+            local currentColor = Instance.new("Frame")
+            currentColor.Size = UDim2.new(0, 30, 0, 30)
+            currentColor.Position = UDim2.new(0, 10, 0, 185)
+            currentColor.BackgroundColor3 = defaultColor
+            currentColor.BorderSizePixel = 0
+            currentColor.ZIndex = 11
+            currentColor.Parent = colorPicker
+
+            -- Convert default color to HSV
+            local h, s, v = defaultColor:ToHSV()
+            local huePosition = h * 180
+            local svPositionX = s * 180
+            local svPositionY = (1 - v) * 180
+
+            hueSelector.Position = UDim2.new(0, huePosition - 2.5, 0, 0)
+            svSelector.Position = UDim2.new(0, svPositionX - 2.5, 0, svPositionY - 2.5)
+
+            -- Update color function
+            local function updateColor(newH, newS, newV)
+                h = newH or h
+                s = newS or s
+                v = newV or v
+                
+                local newColor = Color3.fromHSV(h, s, v)
+                currentColor.BackgroundColor3 = newColor
+                colorButton.BackgroundColor3 = newColor
+                svFrame.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+                if callback then callback(newColor) end
             end
 
-            colorSquare.InputBegan:Connect(function(input)
+            -- Hue selection
+            local hueConnection
+            hueConnection = hueFrame.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    local mousePosition = UserInputService:GetMouseLocation()
-                    local squarePosition = colorSquare.AbsolutePosition
-                    local squareSize = colorSquare.AbsoluteSize
-                    local relativeX = math.clamp(mousePosition.X - squarePosition.X, 0, squareSize.X)
-                    local relativeY = math.clamp(mousePosition.Y - squarePosition.Y, 0, squareSize.Y)
-                    currentSaturation = relativeX / squareSize.X
-                    currentValue = 1 - (relativeY / squareSize.Y)
-                    selector.Position = UDim2.new(0, relativeX - 2, 0, relativeY - 2)
-                    updateColor()
-                end
-            end)
-
-            hueSlider.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    local mousePosition = UserInputService:GetMouseLocation()
-                    local sliderPosition = hueSlider.AbsolutePosition
-                    local sliderSize = hueSlider.AbsoluteSize
-                    local relativeY = math.clamp(mousePosition.Y - sliderPosition.Y, 0, sliderSize.Y)
-                    currentHue = 1 - (relativeY / sliderSize.Y)
-                    hueSelector.Position = UDim2.new(0, 2, 0, relativeY - 1)
-                    updateColor()
-                end
-            end)
-
-            UserInputService.InputChanged:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseMovement then
-                    if colorSquare:IsMouseOver() then
-                        local mousePosition = UserInputService:GetMouseLocation()
-                        local squarePosition = colorSquare.AbsolutePosition
-                        local squareSize = colorSquare.AbsoluteSize
-                        local relativeX = math.clamp(mousePosition.X - squarePosition.X, 0, squareSize.X)
-                        local relativeY = math.clamp(mousePosition.Y - squarePosition.Y, 0, squareSize.Y)
-                        currentSaturation = relativeX / squareSize.X
-                        currentValue = 1 - (relativeY / squareSize.Y)
-                        selector.Position = UDim2.new(0, relativeX - 2, 0, relativeY - 2)
-                        updateColor()
-                    elseif hueSlider:IsMouseOver() then
-                        local mousePosition = UserInputService:GetMouseLocation()
-                        local sliderPosition = hueSlider.AbsolutePosition
-                        local sliderSize = hueSlider.AbsoluteSize
-                        local relativeY = math.clamp(mousePosition.Y - sliderPosition.Y, 0, sliderSize.Y)
-                        currentHue = 1 - (relativeY / sliderSize.Y)
-                        hueSelector.Position = UDim2.new(0, 2, 0, relativeY - 1)
-                        updateColor()
+                    local mousePos = UserInputService:GetMouseLocation()
+                    local framePos = hueFrame.AbsolutePosition
+                    local frameSize = hueFrame.AbsoluteSize
+                    
+                    local relativeX = math.clamp(mousePos.X - framePos.X, 0, frameSize.X)
+                    h = relativeX / frameSize.X
+                    hueSelector.Position = UDim2.new(0, relativeX - 2.5, 0, 0)
+                    updateColor(h)
+                    
+                    while UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
+                        local mousePos = UserInputService:GetMouseLocation()
+                        local relativeX = math.clamp(mousePos.X - framePos.X, 0, frameSize.X)
+                        h = relativeX / frameSize.X
+                        hueSelector.Position = UDim2.new(0, relativeX - 2.5, 0, 0)
+                        updateColor(h)
+                        task.wait()
                     end
                 end
             end)
 
-            UserInputService.InputEnded:Connect(function(input)
+            -- Saturation/Value selection
+            local svConnection
+            svConnection = svFrame.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    wait(0.5)
-                    colorPicker:Destroy()
+                    local mousePos = UserInputService:GetMouseLocation()
+                    local framePos = svFrame.AbsolutePosition
+                    local frameSize = svFrame.AbsoluteSize
+                    
+                    local relativeX = math.clamp(mousePos.X - framePos.X, 0, frameSize.X)
+                    local relativeY = math.clamp(mousePos.Y - framePos.Y, 0, frameSize.Y)
+                    s = relativeX / frameSize.X
+                    v = 1 - (relativeY / frameSize.Y)
+                    svSelector.Position = UDim2.new(0, relativeX - 2.5, 0, relativeY - 2.5)
+                    updateColor(nil, s, v)
+                    
+                    while UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
+                        local mousePos = UserInputService:GetMouseLocation()
+                        local relativeX = math.clamp(mousePos.X - framePos.X, 0, frameSize.X)
+                        local relativeY = math.clamp(mousePos.Y - framePos.Y, 0, frameSize.Y)
+                        s = relativeX / frameSize.X
+                        v = 1 - (relativeY / frameSize.Y)
+                        svSelector.Position = UDim2.new(0, relativeX - 2.5, 0, relativeY - 2.5)
+                        updateColor(nil, s, v)
+                        task.wait()
+                    end
+                end
+            end)
+
+            -- Close color picker when clicking outside
+            local closeConnection
+            closeConnection = UserInputService.InputBegan:Connect(function(input, processed)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 and not processed then
+                    local mousePos = input.Position
+                    local pickerPos = colorPicker.AbsolutePosition
+                    local pickerSize = colorPicker.AbsoluteSize
+                    
+                    if not (mousePos.X >= pickerPos.X and mousePos.X <= pickerPos.X + pickerSize.X and
+                           mousePos.Y >= pickerPos.Y and mousePos.Y <= pickerPos.Y + pickerSize.Y) then
+                        hueConnection:Disconnect()
+                        svConnection:Disconnect()
+                        closeConnection:Disconnect()
+                        colorPicker:Destroy()
+                    end
                 end
             end)
         end)
@@ -774,10 +824,9 @@ UserInputService.InputEnded:Connect(function(input, gameProcessed)
     if input.UserInputType == settings.aimlockKey then
         aimlocking = false
         currentTarget = nil
-    end
+            end
 end)
 
--- Toggle GUI with U key
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     
@@ -825,18 +874,8 @@ connection = RunService.RenderStepped:Connect(function()
             circle.Visible = false
         end
     end
-    
-    -- Update highlights
-    if settings.enabled then
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= localPlayer and player.Character and not highlights[player.Character] and isEnemy(player) then
-                createHighlight(player.Character)
-            end
-        end
-    end
-    
-    -- Handle continuous aimlock if needed
-    if aimlocking and currentTarget and currentTarget.Character and settings.enabled then
+
+ if aimlocking and currentTarget and currentTarget.Character and settings.enabled then
         local head = currentTarget.Character:FindFirstChild("Head")
         if head then
             smoothAim(head.Position)
