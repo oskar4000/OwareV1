@@ -18,7 +18,7 @@ local Window = Rayfield:CreateWindow({
    KeySettings = {
       Title = "Key ! OwareV1",
       Subtitle = "Key System",
-      Note = "Join our [Discord](https://discord.gg/n7uBZDpV) to get the key",  -- Clickable link added here
+      Note = "Join our [Discord](https://discord.gg/n7uBZDpV) to get the key",
       FileName = "OwareV1Key",
       SaveKey = true,
       GrabKeyFromSite = true,
@@ -415,8 +415,202 @@ local FOVSlider = MainTab:CreateSlider({
    end,
 })
 
--- Handle character respawns for spin bot
+----------------------
+-- MOVEMENT SECTION --
+----------------------
+local MoveTab = Window:CreateTab("🏃‍♀️‍➡️Movement🏃‍♀️‍➡️", nil)
+local MovementSection = MoveTab:CreateSection("Movement Modifiers")
+
+-- WalkSpeed Variables
+local walkSpeedEnabled = false
+local defaultWalkSpeed = 16
+local currentWalkSpeed = 50
+local walkSpeedConnection = nil
+
+-- WalkSpeed Toggle
+local WalkSpeedToggle = MoveTab:CreateToggle({
+    Name = "WalkSpeed Modifier",
+    CurrentValue = false,
+    Flag = "WalkSpeedToggle",
+    Callback = function(Value)
+        walkSpeedEnabled = Value
+        local humanoid = game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        
+        if walkSpeedEnabled then
+            if humanoid then
+                humanoid.WalkSpeed = currentWalkSpeed
+            end
+            walkSpeedConnection = game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function(character)
+                task.wait(0.5) -- Wait for character to fully load
+                humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.WalkSpeed = currentWalkSpeed
+                end
+            end)
+            Rayfield:Notify({
+                Title = "WalkSpeed Enabled",
+                Content = "Your WalkSpeed has been modified to " .. currentWalkSpeed,
+                Duration = 3,
+                Image = nil
+            })
+        else
+            if walkSpeedConnection then
+                walkSpeedConnection:Disconnect()
+            end
+            if humanoid then
+                humanoid.WalkSpeed = defaultWalkSpeed
+            end
+            Rayfield:Notify({
+                Title = "WalkSpeed Disabled",
+                Content = "Your WalkSpeed has been reset to default",
+                Duration = 3,
+                Image = nil
+            })
+        end
+    end,
+})
+
+-- WalkSpeed Slider
+local WalkSpeedSlider = MoveTab:CreateSlider({
+    Name = "WalkSpeed Value",
+    Range = {16, 200},
+    Increment = 1,
+    Suffix = "studs",
+    CurrentValue = currentWalkSpeed,
+    Flag = "WalkSpeedSlider",
+    Callback = function(Value)
+        currentWalkSpeed = Value
+        if walkSpeedEnabled then
+            local humanoid = game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.WalkSpeed = currentWalkSpeed
+            end
+        end
+    end,
+})
+
+-- JumpPower Variables
+local jumpPowerEnabled = false
+local defaultJumpPower = 50
+local currentJumpPower = 100
+local jumpPowerConnection = nil
+
+-- JumpPower Toggle
+local JumpPowerToggle = MoveTab:CreateToggle({
+    Name = "JumpPower Modifier",
+    CurrentValue = false,
+    Flag = "JumpPowerToggle",
+    Callback = function(Value)
+        jumpPowerEnabled = Value
+        local humanoid = game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        
+        if jumpPowerEnabled then
+            if humanoid then
+                humanoid.JumpPower = currentJumpPower
+            end
+            jumpPowerConnection = game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function(character)
+                task.wait(0.5) -- Wait for character to fully load
+                humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.JumpPower = currentJumpPower
+                end
+            end)
+            Rayfield:Notify({
+                Title = "JumpPower Enabled",
+                Content = "Your JumpPower has been modified to " .. currentJumpPower,
+                Duration = 3,
+                Image = nil
+            })
+        else
+            if jumpPowerConnection then
+                jumpPowerConnection:Disconnect()
+            end
+            if humanoid then
+                humanoid.JumpPower = defaultJumpPower
+            end
+            Rayfield:Notify({
+                Title = "JumpPower Disabled",
+                Content = "Your JumpPower has been reset to default",
+                Duration = 3,
+                Image = nil
+            })
+        end
+    end,
+})
+
+-- JumpPower Slider
+local JumpPowerSlider = MoveTab:CreateSlider({
+    Name = "JumpPower Value",
+    Range = {50, 200},
+    Increment = 5,
+    Suffix = "power",
+    CurrentValue = currentJumpPower,
+    Flag = "JumpPowerSlider",
+    Callback = function(Value)
+        currentJumpPower = Value
+        if jumpPowerEnabled then
+            local humanoid = game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.JumpPower = currentJumpPower
+            end
+        end
+    end,
+})
+
+-- Infinite Jump Variables
+local infiniteJumpEnabled = false
+local infiniteJumpConnection = nil
+
+-- Infinite Jump Toggle
+local InfiniteJumpToggle = MoveTab:CreateToggle({
+    Name = "Infinite Jump",
+    CurrentValue = false,
+    Flag = "InfiniteJumpToggle",
+    Callback = function(Value)
+        infiniteJumpEnabled = Value
+        
+        if infiniteJumpEnabled then
+            Rayfield:Notify({
+                Title = "Infinite Jump Enabled",
+                Content = "You can now jump infinitely!",
+                Duration = 3,
+                Image = nil
+            })
+            
+            -- Disconnect previous connection if it exists
+            if infiniteJumpConnection then
+                infiniteJumpConnection:Disconnect()
+            end
+            
+            -- Connect to UserInputService
+            infiniteJumpConnection = game:GetService("UserInputService").JumpRequest:Connect(function()
+                if infiniteJumpEnabled then
+                    local character = game:GetService("Players").LocalPlayer.Character
+                    if character then
+                        local humanoid = character:FindFirstChildOfClass("Humanoid")
+                        if humanoid then
+                            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                        end
+                    end
+                end
+            end)
+        else
+            if infiniteJumpConnection then
+                infiniteJumpConnection:Disconnect()
+            end
+            Rayfield:Notify({
+                Title = "Infinite Jump Disabled",
+                Content = "Normal jumping restored",
+                Duration = 3,
+                Image = nil
+            })
+        end
+    end,
+})
+
+-- Handle character respawns for all movement features
 game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function(character)
+    -- Handle spin bot
     if spinBotEnabled then
         if spinBotConnection then
             spinBotConnection:Disconnect()
@@ -433,13 +627,31 @@ game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function(character
         end
     end
     
+    -- Handle WalkSpeed
+    if walkSpeedEnabled then
+        task.wait(0.5)
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = currentWalkSpeed
+        end
+    end
+    
+    -- Handle JumpPower
+    if jumpPowerEnabled then
+        task.wait(0.5)
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.JumpPower = currentJumpPower
+        end
+    end
+    
     -- Reset FOV when character respawns if not changed
     if not fovChanged then
         game:GetService("Workspace").CurrentCamera.FieldOfView = defaultFOV
     end
 end)
 
--- Clean up spin bot when character is removed
+-- Clean up connections when character is removed
 game:GetService("Players").LocalPlayer.CharacterRemoving:Connect(function()
     if spinBotConnection then
         spinBotConnection:Disconnect()
