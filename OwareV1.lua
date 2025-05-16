@@ -26,137 +26,28 @@ local Window = Rayfield:CreateWindow({
    }
 })
 
--- Wait for key verification before creating UI elements
 Rayfield:LoadConfiguration()
 
 local MainTab = Window:CreateTab("💢Main💢", nil)
-local MainSection = MainTab:CreateSection("Main")
 
--- ESP Variables
-local espEnabled = false
-local highlights = {}
+--[[ 
+    Section Structure:
+    1. Aimbot Section
+       - Aimbot Toggle
+       - FOV Circle Toggle
+       - FOV Circle Radius Slider
+    2. ESP Section
+       - ESP Toggle
+    3. Misc Section
+       - TriggerBot Toggle
+       - FOV Changer Toggle
+       - FOV Value Slider
+]]
 
--- FOV Circle Variables
-local fovCircleEnabled = false
-local fovCircleRadius = 100  -- Default FOV radius
-local fovCircle
-local fovCircleVisible = false
-
--- Create the FOV circle function
-local function createFOVCircle()
-    if fovCircle then fovCircle:Remove() end
-    
-    local player = game:GetService("Players").LocalPlayer
-    local camera = workspace.CurrentCamera
-    
-    fovCircle = Drawing.new("Circle")
-    fovCircle.Visible = fovCircleVisible
-    fovCircle.Thickness = 2
-    fovCircle.Color = Color3.fromRGB(170, 0, 255)  -- Purple to match ESP
-    fovCircle.Transparency = 1
-    fovCircle.Filled = false
-    fovCircle.Radius = fovCircleRadius
-    fovCircle.Position = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
-    
-    -- Update the circle position and size when viewport changes
-    game:GetService("RunService").RenderStepped:Connect(function()
-        if fovCircle then
-            fovCircle.Position = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
-        end
-    end)
-end
-
--- Update the FOV circle function
-local function updateFOVCircle()
-    if fovCircle then
-        fovCircle.Visible = fovCircleVisible
-        fovCircle.Radius = fovCircleRadius
-    end
-end
-
--- Check if target is within FOV
-local function isWithinFOV(position, camera)
-    if not fovCircleEnabled then return true end
-    
-    local screenPoint = camera:WorldToViewportPoint(position)
-    local screenCenter = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
-    local point = Vector2.new(screenPoint.X, screenPoint.Y)
-    
-    return (point - screenCenter).Magnitude <= fovCircleRadius
-end
-
-local function highlightPlayer(player)
-    if not espEnabled or player == game.Players.LocalPlayer then return end
-    
-    local character = player.Character
-    if not character then
-        -- If character doesn't exist yet, wait for it
-        player.CharacterAdded:Connect(function(char)
-            highlightPlayer(player)
-        end)
-        return
-    end
-    
-    -- Remove existing highlight if any
-    if highlights[player] then
-        highlights[player]:Destroy()
-    end
-    
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "PlayerHighlight"
-    highlight.FillColor = Color3.fromRGB(170, 0, 255)  -- Purple color
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)  -- White outline
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.FillTransparency = 0.5
-    highlight.Parent = character
-    highlights[player] = highlight
-    
-    -- Handle respawns
-    player.CharacterAdded:Connect(function(newChar)
-        if espEnabled then
-            task.wait(1) -- Wait for character to fully load
-            highlightPlayer(player)
-        end
-    end)
-end
-
-local function removeHighlights()
-    for player, highlight in pairs(highlights) do
-        if highlight then
-            highlight:Destroy()
-        end
-    end
-    highlights = {}
-end
-
-local function toggleESP()
-    espEnabled = not espEnabled
-    
-    if espEnabled then
-        -- Highlight existing players
-        for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
-            highlightPlayer(player)
-        end
-        
-        -- Connect to new players
-        game:GetService("Players").PlayerAdded:Connect(highlightPlayer)
-        
-        Rayfield:Notify({
-            Title = "ESP Enabled",
-            Content = "Players are now highlighted in purple",
-            Duration = 3,
-            Image = nil
-        })
-    else
-        removeHighlights()
-        Rayfield:Notify({
-            Title = "ESP Disabled",
-            Content = "Player highlights removed",
-            Duration = 3,
-            Image = nil
-        })
-    end
-end
+-------------------
+-- AIMBOT SECTION --
+-------------------
+local AimbotSection = MainTab:CreateSection("Aimbot")
 
 -- Aimbot Variables
 local aimbotEnabled = false
@@ -165,103 +56,33 @@ local connection = nil
 local mouseButton2DownConnection = nil
 local mouseButton2UpConnection = nil
 
--- Create buttons after key verification
-local AimbotButton = MainTab:CreateButton({
-   Name = "Aimbot Toggle",
-   Callback = function()
-      aimbotEnabled = not aimbotEnabled
-      
-      if aimbotEnabled then
-         Rayfield:Notify({
-            Title = "Aimbot Enabled",
-            Content = "Hold MB2 to lock onto heads",
-            Duration = 3,
-            Image = nil
-         })
-         
-         local player = game:GetService("Players").LocalPlayer
-         local mouse = player:GetMouse()
-         local camera = workspace.CurrentCamera
-         
-         -- Disconnect any existing connections first
-         if mouseButton2DownConnection then
-            mouseButton2DownConnection:Disconnect()
-            mouseButton2DownConnection = nil
-         end
-         if mouseButton2UpConnection then
-            mouseButton2UpConnection:Disconnect()
-            mouseButton2UpConnection = nil
-         end
-         
-         mouseButton2DownConnection = mouse.Button2Down:Connect(function()
-            local closestDistance = math.huge
-            local closestHead = nil
-            
-            for _, otherPlayer in ipairs(game:GetService("Players"):GetPlayers()) do
-               if otherPlayer ~= player and otherPlayer.Character then
-                  local head = otherPlayer.Character:FindFirstChild("Head")
-                  if head and isWithinFOV(head.Position, camera) then
-                     local distance = (head.Position - camera.CFrame.Position).Magnitude
-                     if distance < closestDistance then
-                        closestDistance = distance
-                        closestHead = head
-                     end
-                  end
-               end
-            end
-            
-            if closestHead then
-               lockedPart = closestHead
-               connection = game:GetService("RunService").RenderStepped:Connect(function()
-                  if lockedPart and lockedPart.Parent then
-                     camera.CFrame = CFrame.new(camera.CFrame.Position, lockedPart.Position)
-                  else
-                     if connection then
-                        connection:Disconnect()
-                        connection = nil
-                     end
-                     lockedPart = nil
-                  end
-               end)
-            end
-         end)
-         
-         mouseButton2UpConnection = mouse.Button2Up:Connect(function()
-            if connection then
-               connection:Disconnect()
-               connection = nil
-            end
-            lockedPart = nil
-         end)
-      else
-         if connection then
-            connection:Disconnect()
-            connection = nil
-         end
-         if mouseButton2DownConnection then
-            mouseButton2DownConnection:Disconnect()
-            mouseButton2DownConnection = nil
-         end
-         if mouseButton2UpConnection then
-            mouseButton2UpConnection:Disconnect()
-            mouseButton2UpConnection = nil
-         end
-         lockedPart = nil
-         Rayfield:Notify({
-            Title = "Aimbot Disabled",
-            Content = "Aimbot is now off",
-            Duration = 3,
-            Image = nil
-         })
-      end
-   end
-})
+-- FOV Circle Variables
+local fovCircleEnabled = false
+local fovCircleRadius = 100
+local fovCircle
+local fovCircleVisible = false
 
--- ESP Toggle Button
-local EspButton = MainTab:CreateButton({
-   Name = "ESP Toggle",
-   Callback = toggleESP
-})
+-- Create the FOV circle function
+local function createFOVCircle()
+    if fovCircle then fovCircle:Remove() end
+    
+    local camera = workspace.CurrentCamera
+    fovCircle = Drawing.new("Circle")
+    fovCircle.Visible = fovCircleVisible
+    fovCircle.Thickness = 2
+    fovCircle.Color = Color3.fromRGB(170, 0, 255)
+    fovCircle.Transparency = 1
+    fovCircle.Filled = false
+    fovCircle.Radius = fovCircleRadius
+    fovCircle.Position = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
+    
+    game:GetService("RunService").RenderStepped:Connect(function()
+        if fovCircle then
+            fovCircle.Position = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
+            fovCircle.Radius = fovCircleRadius
+        end
+    end)
+end
 
 -- FOV Circle Toggle
 local FOVCircleToggle = MainTab:CreateToggle({
@@ -298,19 +119,211 @@ local FOVRadiusSlider = MainTab:CreateSlider({
    end,
 })
 
--- TriggerBot Toggle (Updated Implementation)
+-- Aimbot Button
+local AimbotButton = MainTab:CreateButton({
+   Name = "Aimbot Toggle",
+   Callback = function()
+      aimbotEnabled = not aimbotEnabled
+      
+      if aimbotEnabled then
+         Rayfield:Notify({
+            Title = "Aimbot Enabled",
+            Content = "Hold MB2 to lock onto heads",
+            Duration = 3,
+            Image = nil
+         })
+         
+         local player = game:GetService("Players").LocalPlayer
+         local mouse = player:GetMouse()
+         local camera = workspace.CurrentCamera
+         
+         -- Disconnect previous connections if they exist
+         if mouseButton2DownConnection then mouseButton2DownConnection:Disconnect() end
+         if mouseButton2UpConnection then mouseButton2UpConnection:Disconnect() end
+         if connection then connection:Disconnect() end
+         
+         mouseButton2DownConnection = mouse.Button2Down:Connect(function()
+            local closestDistance = math.huge
+            local closestHead = nil
+            local playerPosition = camera.CFrame.Position
+            
+            for _, otherPlayer in ipairs(game:GetService("Players"):GetPlayers()) do
+               if otherPlayer ~= player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("Humanoid") and otherPlayer.Character.Humanoid.Health > 0 then
+                  local head = otherPlayer.Character:FindFirstChild("Head")
+                  if head then
+                     local screenPoint, onScreen = camera:WorldToViewportPoint(head.Position)
+                     local distance = (head.Position - playerPosition).Magnitude
+                     
+                     -- Check if within FOV circle if enabled
+                     if fovCircleEnabled then
+                        local screenPoint = camera:WorldToViewportPoint(head.Position)
+                        if screenPoint.Z > 0 then -- Only if in front of camera
+                            local screenPos = Vector2.new(screenPoint.X, screenPoint.Y)
+                            local circleCenter = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
+                            local distanceFromCenter = (screenPos - circleCenter).Magnitude
+                            if distanceFromCenter > fovCircleRadius then
+                               continue -- Skip if outside FOV circle
+                            end
+                        else
+                            continue -- Skip if behind camera
+                        end
+                     end
+                     
+                     if onScreen and distance < closestDistance then
+                        closestDistance = distance
+                        closestHead = head
+                     end
+                  end
+               end
+            end
+            
+            if closestHead then
+               lockedPart = closestHead
+               connection = game:GetService("RunService").RenderStepped:Connect(function()
+                  if lockedPart and lockedPart.Parent and lockedPart.Parent:FindFirstChild("Humanoid") and lockedPart.Parent.Humanoid.Health > 0 then
+                     -- Smooth aiming
+                     local currentCFrame = camera.CFrame
+                     local targetPosition = lockedPart.Position
+                     local newCFrame = CFrame.new(currentCFrame.Position, targetPosition)
+                     camera.CFrame = newCFrame:Lerp(newCFrame, 0.7) -- Adjust the lerp value for smoother/stiffer aiming
+                  else
+                     if connection then connection:Disconnect() end
+                     lockedPart = nil
+                  end
+               end)
+            end
+         end)
+         
+         mouseButton2UpConnection = mouse.Button2Up:Connect(function()
+            if connection then connection:Disconnect() end
+            lockedPart = nil
+         end)
+      else
+         -- Clean up when disabling
+         if connection then connection:Disconnect() end
+         if mouseButton2DownConnection then mouseButton2DownConnection:Disconnect() end
+         if mouseButton2UpConnection then mouseButton2UpConnection:Disconnect() end
+         lockedPart = nil
+         Rayfield:Notify({
+            Title = "Aimbot Disabled",
+            Content = "Aimbot is now off",
+            Duration = 3,
+            Image = nil
+         })
+      end
+   end
+})
+----------------
+-- ESP SECTION --
+----------------
+local ESPSection = MainTab:CreateSection("ESP")
+
+-- ESP Variables
+local espEnabled = false
+local highlights = {}
+local espColor = Color3.fromRGB(170, 0, 255) -- Default purple color
+
+local function highlightPlayer(player)
+    if not espEnabled or player == game.Players.LocalPlayer then return end
+    
+    local character = player.Character
+    if not character then
+        player.CharacterAdded:Connect(function(char)
+            highlightPlayer(player)
+        end)
+        return
+    end
+    
+    if highlights[player] then highlights[player]:Destroy() end
+    
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "PlayerHighlight"
+    highlight.FillColor = espColor
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.FillTransparency = 0.5
+    highlight.Parent = character
+    highlights[player] = highlight
+    
+    player.CharacterAdded:Connect(function(newChar)
+        if espEnabled then
+            task.wait(1)
+            highlightPlayer(player)
+        end
+    end)
+end
+
+local function removeHighlights()
+    for player, highlight in pairs(highlights) do
+        if highlight then highlight:Destroy() end
+    end
+    highlights = {}
+end
+
+local function updateHighlightColors()
+    for player, highlight in pairs(highlights) do
+        if highlight and highlight:IsA("Highlight") then
+            highlight.FillColor = espColor
+        end
+    end
+end
+
+-- ESP Toggle Button
+local EspButton = MainTab:CreateButton({
+   Name = "ESP Toggle",
+   Callback = function()
+      espEnabled = not espEnabled
+      
+      if espEnabled then
+         for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+            highlightPlayer(player)
+         end
+         game:GetService("Players").PlayerAdded:Connect(highlightPlayer)
+         Rayfield:Notify({
+            Title = "ESP Enabled",
+            Content = "Players are now highlighted",
+            Duration = 3,
+            Image = nil
+         })
+      else
+         removeHighlights()
+         Rayfield:Notify({
+            Title = "ESP Disabled",
+            Content = "Player highlights removed",
+            Duration = 3,
+            Image = nil
+         })
+      end
+   end
+})
+
+-- ESP Color Picker
+local EspColorPicker = MainTab:CreateColorPicker({
+    Name = "ESP Color",
+    Color = espColor,
+    Flag = "ESPColorPicker",
+    Callback = function(Value)
+        espColor = Value
+        updateHighlightColors()
+    end
+})
+
+-----------------
+-- MISC SECTION --
+-----------------
+local MiscSection = MainTab:CreateSection("Misc")
+
+-- TriggerBot Toggle
 local TriggerBotToggle = MainTab:CreateToggle({
    Name = "TriggerBot",
    CurrentValue = false,
    Flag = "Toggle2",
    Callback = function(Value)
-       -- TriggerBot variables
        local triggerBotEnabled = Value
        local triggerBotActive = false
        local triggerBotConnection = nil
        local mouse = game:GetService("Players").LocalPlayer:GetMouse()
 
-       -- Function to check if mouse is over enemy
        local function isMouseOverEnemy()
            local player = game:GetService("Players").LocalPlayer
            local target = mouse.Target
@@ -322,21 +335,13 @@ local TriggerBotToggle = MainTab:CreateToggle({
            local targetPlayer = game:GetService("Players"):GetPlayerFromCharacter(model)
            if not targetPlayer or targetPlayer == player then return false end
            
-           local validParts = {
-               "Head", "Torso", "LeftArm", "RightArm", "LeftLeg", "RightLeg",
-               "UpperTorso", "LowerTorso", "HumanoidRootPart"
-           }
-           
+           local validParts = {"Head", "Torso", "LeftArm", "RightArm", "LeftLeg", "RightLeg", "UpperTorso", "LowerTorso", "HumanoidRootPart"}
            for _, partName in ipairs(validParts) do
-               if target.Name == partName then
-                   return true
-               end
+               if target.Name == partName then return true end
            end
-           
            return false
        end
 
-       -- Function to simulate mouse click
        local function simulateMouseClick()
            mouse.Button1Down:Fire()
            task.wait(0.05)
@@ -351,28 +356,19 @@ local TriggerBotToggle = MainTab:CreateToggle({
                Image = nil
            })
 
-           -- Mouse button 4 detection
            mouse.Button4Down:Connect(function()
                triggerBotActive = true
                triggerBotConnection = game:GetService("RunService").RenderStepped:Connect(function()
-                   if isMouseOverEnemy() then
-                       simulateMouseClick()
-                   end
+                   if isMouseOverEnemy() then simulateMouseClick() end
                end)
            end)
 
            mouse.Button4Up:Connect(function()
                triggerBotActive = false
-               if triggerBotConnection then
-                   triggerBotConnection:Disconnect()
-                   triggerBotConnection = nil
-               end
+               if triggerBotConnection then triggerBotConnection:Disconnect() end
            end)
        else
-           if triggerBotConnection then
-               triggerBotConnection:Disconnect()
-               triggerBotConnection = nil
-           end
+           if triggerBotConnection then triggerBotConnection:Disconnect() end
            triggerBotActive = false
            Rayfield:Notify({
                Title = "TriggerBot Disabled",
@@ -380,6 +376,57 @@ local TriggerBotToggle = MainTab:CreateToggle({
                Duration = 3,
                Image = nil
            })
+       end
+   end,
+})
+
+-- FOV Changer Variables
+local fovChangerEnabled = false
+local defaultFOV = 70
+local currentFOV = 70
+local fovChanged = false
+
+-- FOV Changer Toggle
+local FOVChangerToggle = MainTab:CreateToggle({
+   Name = "FOV Changer",
+   CurrentValue = false,
+   Flag = "Toggle4",
+   Callback = function(Value)
+       fovChangerEnabled = Value
+       if fovChangerEnabled then
+           game:GetService("Workspace").CurrentCamera.FieldOfView = currentFOV
+           fovChanged = true
+           Rayfield:Notify({
+               Title = "FOV Changer Enabled",
+               Content = "Field of View has been modified",
+               Duration = 3,
+               Image = nil
+           })
+       else
+           game:GetService("Workspace").CurrentCamera.FieldOfView = defaultFOV
+           fovChanged = false
+           Rayfield:Notify({
+               Title = "FOV Changer Disabled",
+               Content = "Field of View reset to default",
+               Duration = 3,
+               Image = nil
+           })
+       end
+   end,
+})
+
+-- FOV Value Slider
+local FOVSlider = MainTab:CreateSlider({
+   Name = "FOV Value",
+   Range = {50, 120},
+   Increment = 5,
+   Suffix = "°",
+   CurrentValue = defaultFOV,
+   Flag = "Slider2",
+   Callback = function(Value)
+       currentFOV = Value
+       if fovChangerEnabled and fovChanged then
+           game:GetService("Workspace").CurrentCamera.FieldOfView = currentFOV
        end
    end,
 })
@@ -393,65 +440,9 @@ Rayfield:Notify({
    Actions = {
       Ignore = {
          Name = "Okay!",
-         Callback = function()
-            print("Script initialized")
-         end
+         Callback = function() print("Script initialized") end
       },
    },
-})
-
--- FOV Changer Variables
-local fovChangerEnabled = false
-local defaultFOV = 70  -- Default game FOV
-local currentFOV = 70
-local fovChanged = false
-
--- FOV Changer Toggle
-local FOVChangerToggle = MainTab:CreateToggle({
-   Name = "FOV Changer",
-   CurrentValue = false,
-   Flag = "Toggle4",
-   Callback = function(Value)
-       fovChangerEnabled = Value
-       if fovChangerEnabled then
-           -- Apply the FOV change
-           game:GetService("Workspace").CurrentCamera.FieldOfView = currentFOV
-           fovChanged = true
-           Rayfield:Notify({
-               Title = "FOV Changer Enabled",
-               Content = "Field of View has been modified",
-               Duration = 3,
-               Image = nil
-           })
-       else
-           -- Reset to default FOV
-           game:GetService("Workspace").CurrentCamera.FieldOfView = defaultFOV
-           fovChanged = false
-           Rayfield:Notify({
-               Title = "FOV Changer Disabled",
-               Content = "Field of View reset to default",
-               Duration = 3,
-               Image = nil
-           })
-       end
-   end,
-})
-
--- FOV Value Slider (matches the style of FOV Circle slider)
-local FOVSlider = MainTab:CreateSlider({
-   Name = "FOV Value",
-   Range = {50, 120},  -- Common FOV range for games
-   Increment = 5,
-   Suffix = "°",
-   CurrentValue = defaultFOV,
-   Flag = "Slider2",
-   Callback = function(Value)
-       currentFOV = Value
-       if fovChangerEnabled and fovChanged then
-           -- Only update if the changer is active
-           game:GetService("Workspace").CurrentCamera.FieldOfView = currentFOV
-       end
-   end,
 })
 
 -- Reset FOV when script ends or is disabled
