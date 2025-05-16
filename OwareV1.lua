@@ -1,906 +1,212 @@
--- Advanced Aimbot with GUI Configuration
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local Workspace = game:GetService("Workspace")
-local TweenService = game:GetService("TweenService")
-local CoreGui = game:GetService("CoreGui")
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
-local localPlayer = Players.LocalPlayer
-local mouse = localPlayer:GetMouse()
-local camera = Workspace.CurrentCamera
+local Window = Rayfield:CreateWindow({
+   Name = "👽OwareV1👽",
+   LoadingTitle = "Made For FPS Combat",
+   LoadingSubtitle = "by 0skar12345_86784 On Discord",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "ConfigSave",
+      FileName = "OwareV1"
+   },
+   Discord = {
+      Enabled = true,
+      Invite = "n7uBZDpV",
+      RememberJoins = true
+   },
+   KeySystem = true,
+   KeySettings = {
+      Title = "Key ! OwareV1",
+      Subtitle = "Key System",
+      Note = "Key In Discord Server",
+      FileName = "OwareV1Key",
+      SaveKey = true,
+      GrabKeyFromSite = true,
+      Key = {"https://pastebin.com/raw/Sge1uUwm"}
+   }
+})
 
--- Default Configuration
-local settings = {
-    enabled = true,
-    highlightColor = Color3.fromRGB(170, 0, 255),
-    transparency = 0.3,
-    aimlockKey = Enum.UserInputType.MouseButton2,
-    aimlockRange = 1000,
-    smoothness = 0.3,
-    wallCheck = true,
-    fovCircle = true,
-    fovSize = 100,
-    glowEffect = true,
-    teamCheck = true
-}
+Rayfield:LoadConfiguration()
 
+local MainTab = Window:CreateTab("💢Main💢", nil)
+local MainSection = MainTab:CreateSection("Main")
+
+-- ESP Variables
+local espEnabled = false
 local highlights = {}
-local currentTarget = nil
-local aimlocking = false
-local fovCircleVisual = nil
-local glowCircles = {}
-local guiEnabled = false
-local gui
 
--- Create GUI
-local function createGUI()
-    -- Destroy existing GUI if it exists
-    if gui then
-        gui:Destroy()
-    end
-
-    -- Main GUI frame
-    gui = Instance.new("ScreenGui")
-    gui.Name = "AimbotGUI"
-    gui.Parent = CoreGui
-
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.new(0, 300, 0, 400)
-    mainFrame.Position = UDim2.new(0.5, -150, 0.5, -200)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-    mainFrame.BorderSizePixel = 0
-    mainFrame.ClipsDescendants = true
-    mainFrame.Parent = gui
-
-    -- Title bar
-    local titleBar = Instance.new("Frame")
-    titleBar.Name = "TitleBar"
-    titleBar.Size = UDim2.new(1, 0, 0, 30)
-    titleBar.BackgroundColor3 = Color3.fromRGB(60, 0, 100)
-    titleBar.BorderSizePixel = 0
-    titleBar.Parent = mainFrame
-
-    local title = Instance.new("TextLabel")
-    title.Name = "Title"
-    title.Size = UDim2.new(1, 0, 1, 0)
-    title.BackgroundTransparency = 1
-    title.Text = "Aimbot Configuration"
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 14
-    title.Parent = titleBar
-
-    -- Close button
-    local closeButton = Instance.new("TextButton")
-    closeButton.Name = "CloseButton"
-    closeButton.Size = UDim2.new(0, 30, 1, 0)
-    closeButton.Position = UDim2.new(1, -30, 0, 0)
-    closeButton.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-    closeButton.BorderSizePixel = 0
-    closeButton.Text = "X"
-    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeButton.Font = Enum.Font.GothamBold
-    closeButton.TextSize = 14
-    closeButton.Parent = titleBar
-
-    closeButton.MouseButton1Click:Connect(function()
-        guiEnabled = false
-        gui.Enabled = false
-    end)
-
-    -- Make draggable
-    local dragging
-    local dragInput
-    local dragStart
-    local startPos
-
-    titleBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = mainFrame.Position
-            
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-
-    titleBar.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            dragInput = input
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
-            local delta = input.Position - dragStart
-            mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-
-    -- Scroll frame for options
-    local scrollFrame = Instance.new("ScrollingFrame")
-    scrollFrame.Name = "ScrollFrame"
-    scrollFrame.Size = UDim2.new(1, 0, 1, -30)
-    scrollFrame.Position = UDim2.new(0, 0, 0, 30)
-    scrollFrame.BackgroundTransparency = 1
-    scrollFrame.ScrollBarThickness = 5
-    scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 0, 150)
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 700)
-    scrollFrame.Parent = mainFrame
-
-    -- Create toggle option function
-    local function createToggleOption(name, text, defaultValue, yPosition, callback)
-        local optionFrame = Instance.new("Frame")
-        optionFrame.Name = name .. "Option"
-        optionFrame.Size = UDim2.new(1, -20, 0, 30)
-        optionFrame.Position = UDim2.new(0, 10, 0, yPosition)
-        optionFrame.BackgroundTransparency = 1
-        optionFrame.Parent = scrollFrame
-
-        local label = Instance.new("TextLabel")
-        label.Name = "Label"
-        label.Size = UDim2.new(0.7, 0, 1, 0)
-        label.BackgroundTransparency = 1
-        label.Text = text
-        label.TextColor3 = Color3.fromRGB(200, 200, 200)
-        label.Font = Enum.Font.Gotham
-        label.TextSize = 12
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.Parent = optionFrame
-
-        local toggleButton = Instance.new("TextButton")
-        toggleButton.Name = "ToggleButton"
-        toggleButton.Size = UDim2.new(0, 50, 0, 20)
-        toggleButton.Position = UDim2.new(0.7, 0, 0.5, -10)
-        toggleButton.BackgroundColor3 = defaultValue and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
-        toggleButton.BorderSizePixel = 0
-        toggleButton.Text = defaultValue and "ON" or "OFF"
-        toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-        toggleButton.Font = Enum.Font.GothamBold
-        toggleButton.TextSize = 12
-        toggleButton.Parent = optionFrame
-
-        toggleButton.MouseButton1Click:Connect(function()
-            local newValue = not defaultValue
-            defaultValue = newValue
-            toggleButton.BackgroundColor3 = newValue and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
-            toggleButton.Text = newValue and "ON" or "OFF"
-            if callback then callback(newValue) end
-        end)
-
-        return defaultValue
-    end
-
-    -- Create slider option function
-    local function createSliderOption(name, text, minValue, maxValue, defaultValue, yPosition, callback)
-        local optionFrame = Instance.new("Frame")
-        optionFrame.Name = name .. "Option"
-        optionFrame.Size = UDim2.new(1, -20, 0, 50)
-        optionFrame.Position = UDim2.new(0, 10, 0, yPosition)
-        optionFrame.BackgroundTransparency = 1
-        optionFrame.Parent = scrollFrame
-
-        local label = Instance.new("TextLabel")
-        label.Name = "Label"
-        label.Size = UDim2.new(1, 0, 0, 20)
-        label.BackgroundTransparency = 1
-        label.Text = text
-        label.TextColor3 = Color3.fromRGB(200, 200, 200)
-        label.Font = Enum.Font.Gotham
-        label.TextSize = 12
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.Parent = optionFrame
-
-        local sliderFrame = Instance.new("Frame")
-        sliderFrame.Name = "SliderFrame"
-        sliderFrame.Size = UDim2.new(1, 0, 0, 20)
-        sliderFrame.Position = UDim2.new(0, 0, 0, 25)
-        sliderFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-        sliderFrame.BorderSizePixel = 0
-        sliderFrame.Parent = optionFrame
-
-        local sliderFill = Instance.new("Frame")
-        sliderFill.Name = "SliderFill"
-        sliderFill.Size = UDim2.new((defaultValue - minValue) / (maxValue - minValue), 0, 1, 0)
-        sliderFill.BackgroundColor3 = Color3.fromRGB(170, 0, 255)
-        sliderFill.BorderSizePixel = 0
-        sliderFill.Parent = sliderFrame
-
-        local sliderValue = Instance.new("TextLabel")
-        sliderValue.Name = "SliderValue"
-        sliderValue.Size = UDim2.new(1, 0, 1, 0)
-        sliderValue.BackgroundTransparency = 1
-        sliderValue.Text = tostring(defaultValue)
-        sliderValue.TextColor3 = Color3.fromRGB(255, 255, 255)
-        sliderValue.Font = Enum.Font.GothamBold
-        sliderValue.TextSize = 12
-        sliderValue.Parent = sliderFrame
-
-        local isSliding = false
-
-        sliderFrame.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                isSliding = true
-                local mousePosition = UserInputService:GetMouseLocation().X
-                local framePosition = sliderFrame.AbsolutePosition.X
-                local frameSize = sliderFrame.AbsoluteSize.X
-                local relativePosition = math.clamp(mousePosition - framePosition, 0, frameSize)
-                local value = minValue + (relativePosition / frameSize) * (maxValue - minValue)
-                value = math.floor(value * 10) / 10
-                sliderFill.Size = UDim2.new((value - minValue) / (maxValue - minValue), 0, 1, 0)
-                sliderValue.Text = tostring(value)
-                if callback then callback(value) end
-            end
-        end)
-
-        UserInputService.InputChanged:Connect(function(input)
-            if isSliding and input.UserInputType == Enum.UserInputType.MouseMovement then
-                local mousePosition = UserInputService:GetMouseLocation().X
-                local framePosition = sliderFrame.AbsolutePosition.X
-                local frameSize = sliderFrame.AbsoluteSize.X
-                local relativePosition = math.clamp(mousePosition - framePosition, 0, frameSize)
-                local value = minValue + (relativePosition / frameSize) * (maxValue - minValue)
-                value = math.floor(value * 10) / 10
-                sliderFill.Size = UDim2.new((value - minValue) / (maxValue - minValue), 0, 1, 0)
-                sliderValue.Text = tostring(value)
-                if callback then callback(value) end
-            end
-        end)
-
-        UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                isSliding = false
-            end
-        end)
-
-        return defaultValue
-    end
-
-    -- Create color picker function with improved color wheel
-    local function createColorOption(name, text, defaultColor, yPosition, callback)
-        local optionFrame = Instance.new("Frame")
-        optionFrame.Name = name .. "Option"
-        optionFrame.Size = UDim2.new(1, -20, 0, 30)
-        optionFrame.Position = UDim2.new(0, 10, 0, yPosition)
-        optionFrame.BackgroundTransparency = 1
-        optionFrame.Parent = scrollFrame
-
-        local label = Instance.new("TextLabel")
-        label.Name = "Label"
-        label.Size = UDim2.new(0.7, 0, 1, 0)
-        label.BackgroundTransparency = 1
-        label.Text = text
-        label.TextColor3 = Color3.fromRGB(200, 200, 200)
-        label.Font = Enum.Font.Gotham
-        label.TextSize = 12
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.Parent = optionFrame
-
-        local colorButton = Instance.new("TextButton")
-        colorButton.Name = "ColorButton"
-        colorButton.Size = UDim2.new(0, 50, 0, 20)
-        colorButton.Position = UDim2.new(0.7, 0, 0.5, -10)
-        colorButton.BackgroundColor3 = defaultColor
-        colorButton.BorderSizePixel = 0
-        colorButton.Text = ""
-        colorButton.Parent = optionFrame
-
-        colorButton.MouseButton1Click:Connect(function()
-            -- Destroy existing color picker if it exists
-            if colorButton:FindFirstChild("ColorPicker") then
-                colorButton.ColorPicker:Destroy()
-                return
-            end
-
-            local colorPicker = Instance.new("Frame")
-            colorPicker.Name = "ColorPicker"
-            colorPicker.Size = UDim2.new(0, 200, 0, 220)
-            colorPicker.Position = UDim2.new(0, 0, 1, 5)
-            colorPicker.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-            colorPicker.BorderSizePixel = 0
-            colorPicker.ZIndex = 10
-            colorPicker.Parent = colorButton
-
-            -- Hue gradient (rainbow spectrum)
-            local hueFrame = Instance.new("Frame")
-            hueFrame.Size = UDim2.new(0, 180, 0, 20)
-            hueFrame.Position = UDim2.new(0.5, -90, 0, 10)
-            hueFrame.BackgroundColor3 = Color3.new(1, 1, 1)
-            hueFrame.BorderSizePixel = 0
-            hueFrame.ZIndex = 11
-            hueFrame.Parent = colorPicker
-
-            local hueGradient = Instance.new("UIGradient")
-            hueGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
-                ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 0, 255)),
-                ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 0, 255)),
-                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 255)),
-                ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0, 255, 0)),
-                ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 255, 0)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
-            })
-            hueGradient.Rotation = 0
-            hueGradient.Parent = hueFrame
-
-            -- Saturation/Value square
-            local svFrame = Instance.new("Frame")
-            svFrame.Size = UDim2.new(0, 180, 0, 180)
-            svFrame.Position = UDim2.new(0.5, -90, 0, 35)
-            svFrame.BackgroundColor3 = defaultColor
-            svFrame.BorderSizePixel = 0
-            svFrame.ZIndex = 11
-            svFrame.Parent = colorPicker
-
-            local saturationGradient = Instance.new("UIGradient")
-            saturationGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
-                ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1))
-            })
-            saturationGradient.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0),
-                NumberSequenceKeypoint.new(1, 1)
-            })
-            saturationGradient.Rotation = 0
-            saturationGradient.Parent = svFrame
-
-            local valueGradient = Instance.new("UIGradient")
-            valueGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)),
-                ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))
-            })
-            valueGradient.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 1),
-                NumberSequenceKeypoint.new(1, 0)
-            })
-            valueGradient.Rotation = 90
-            valueGradient.Parent = svFrame
-
-            -- Selectors
-            local hueSelector = Instance.new("Frame")
-            hueSelector.Size = UDim2.new(0, 5, 0, 20)
-            hueSelector.Position = UDim2.new(0, 0, 0, 0)
-            hueSelector.BackgroundColor3 = Color3.new(1, 1, 1)
-            hueSelector.BorderSizePixel = 1
-            hueSelector.BorderColor3 = Color3.new(0, 0, 0)
-            hueSelector.ZIndex = 12
-            hueSelector.Parent = hueFrame
-
-            local svSelector = Instance.new("Frame")
-            svSelector.Size = UDim2.new(0, 5, 0, 5)
-            svSelector.Position = UDim2.new(0, 0, 0, 0)
-            svSelector.BackgroundColor3 = Color3.new(1, 1, 1)
-            svSelector.BorderSizePixel = 1
-            svSelector.BorderColor3 = Color3.new(0, 0, 0)
-            svSelector.ZIndex = 12
-            svSelector.Parent = svFrame
-
-            -- Current color preview
-            local currentColor = Instance.new("Frame")
-            currentColor.Size = UDim2.new(0, 30, 0, 30)
-            currentColor.Position = UDim2.new(0, 10, 0, 185)
-            currentColor.BackgroundColor3 = defaultColor
-            currentColor.BorderSizePixel = 0
-            currentColor.ZIndex = 11
-            currentColor.Parent = colorPicker
-
-            -- Convert default color to HSV
-            local h, s, v = defaultColor:ToHSV()
-            local huePosition = h * 180
-            local svPositionX = s * 180
-            local svPositionY = (1 - v) * 180
-
-            hueSelector.Position = UDim2.new(0, huePosition - 2.5, 0, 0)
-            svSelector.Position = UDim2.new(0, svPositionX - 2.5, 0, svPositionY - 2.5)
-
-            -- Update color function
-            local function updateColor(newH, newS, newV)
-                h = newH or h
-                s = newS or s
-                v = newV or v
-                
-                local newColor = Color3.fromHSV(h, s, v)
-                currentColor.BackgroundColor3 = newColor
-                colorButton.BackgroundColor3 = newColor
-                svFrame.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
-                if callback then callback(newColor) end
-            end
-
-            -- Hue selection
-            local hueConnection
-            hueConnection = hueFrame.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    local mousePos = UserInputService:GetMouseLocation()
-                    local framePos = hueFrame.AbsolutePosition
-                    local frameSize = hueFrame.AbsoluteSize
-                    
-                    local relativeX = math.clamp(mousePos.X - framePos.X, 0, frameSize.X)
-                    h = relativeX / frameSize.X
-                    hueSelector.Position = UDim2.new(0, relativeX - 2.5, 0, 0)
-                    updateColor(h)
-                    
-                    while UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
-                        local mousePos = UserInputService:GetMouseLocation()
-                        local relativeX = math.clamp(mousePos.X - framePos.X, 0, frameSize.X)
-                        h = relativeX / frameSize.X
-                        hueSelector.Position = UDim2.new(0, relativeX - 2.5, 0, 0)
-                        updateColor(h)
-                        task.wait()
-                    end
-                end
-            end)
-
-            -- Saturation/Value selection
-            local svConnection
-            svConnection = svFrame.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    local mousePos = UserInputService:GetMouseLocation()
-                    local framePos = svFrame.AbsolutePosition
-                    local frameSize = svFrame.AbsoluteSize
-                    
-                    local relativeX = math.clamp(mousePos.X - framePos.X, 0, frameSize.X)
-                    local relativeY = math.clamp(mousePos.Y - framePos.Y, 0, frameSize.Y)
-                    s = relativeX / frameSize.X
-                    v = 1 - (relativeY / frameSize.Y)
-                    svSelector.Position = UDim2.new(0, relativeX - 2.5, 0, relativeY - 2.5)
-                    updateColor(nil, s, v)
-                    
-                    while UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
-                        local mousePos = UserInputService:GetMouseLocation()
-                        local relativeX = math.clamp(mousePos.X - framePos.X, 0, frameSize.X)
-                        local relativeY = math.clamp(mousePos.Y - framePos.Y, 0, frameSize.Y)
-                        s = relativeX / frameSize.X
-                        v = 1 - (relativeY / frameSize.Y)
-                        svSelector.Position = UDim2.new(0, relativeX - 2.5, 0, relativeY - 2.5)
-                        updateColor(nil, s, v)
-                        task.wait()
-                    end
-                end
-            end)
-
-            -- Close color picker when clicking outside
-            local closeConnection
-            closeConnection = UserInputService.InputBegan:Connect(function(input, processed)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 and not processed then
-                    local mousePos = input.Position
-                    local pickerPos = colorPicker.AbsolutePosition
-                    local pickerSize = colorPicker.AbsoluteSize
-                    
-                    if not (mousePos.X >= pickerPos.X and mousePos.X <= pickerPos.X + pickerSize.X and
-                           mousePos.Y >= pickerPos.Y and mousePos.Y <= pickerPos.Y + pickerSize.Y) then
-                        hueConnection:Disconnect()
-                        svConnection:Disconnect()
-                        closeConnection:Disconnect()
-                        colorPicker:Destroy()
-                    end
-                end
-            end)
-        end)
-    end
-
-    -- Create all options
-    local yOffset = 10
-
-    -- Enable/Disable toggle
-    settings.enabled = createToggleOption("Enabled", "Enable Aimbot", settings.enabled, yOffset, function(value)
-        settings.enabled = value
-        if not value then
-            clearHighlights()
-            if fovCircleVisual then
-                fovCircleVisual.Visible = false
-                for _, circle in ipairs(glowCircles) do
-                    circle.Visible = false
-                end
-            end
-        else
-            if fovCircleVisual then
-                fovCircleVisual.Visible = settings.fovCircle
-                for _, circle in ipairs(glowCircles) do
-                    circle.Visible = settings.fovCircle and settings.glowEffect
-                end
-            end
-        end
-    end)
-    yOffset = yOffset + 35
-
-    -- Team Check toggle
-    settings.teamCheck = createToggleOption("TeamCheck", "Team Check", settings.teamCheck, yOffset, function(value)
-        settings.teamCheck = value
-        clearHighlights()
-    end)
-    yOffset = yOffset + 35
-
-    -- Wall Check toggle
-    settings.wallCheck = createToggleOption("WallCheck", "Wall Check", settings.wallCheck, yOffset, function(value)
-        settings.wallCheck = value
-    end)
-    yOffset = yOffset + 35
-
-    -- FOV Circle toggle
-    settings.fovCircle = createToggleOption("FOVCircle", "FOV Circle", settings.fovCircle, yOffset, function(value)
-        settings.fovCircle = value
-        if fovCircleVisual then
-            fovCircleVisual.Visible = value and settings.enabled
-            for _, circle in ipairs(glowCircles) do
-                circle.Visible = value and settings.enabled and settings.glowEffect
-            end
-        end
-    end)
-    yOffset = yOffset + 35
-
-    -- Glow Effect toggle
-    settings.glowEffect = createToggleOption("GlowEffect", "Glow Effect", settings.glowEffect, yOffset, function(value)
-        settings.glowEffect = value
-        clearHighlights()
-        if fovCircleVisual and glowCircles then
-            for _, circle in ipairs(glowCircles) do
-                circle.Visible = value and settings.fovCircle and settings.enabled
-            end
-        end
-    end)
-    yOffset = yOffset + 35
-
-    -- FOV Size slider
-    settings.fovSize = createSliderOption("FOVSize", "FOV Size", 50, 300, settings.fovSize, yOffset, function(value)
-        settings.fovSize = value
-        if fovCircleVisual then
-            fovCircleVisual.Radius = value
-            if glowCircles then
-                glowCircles[1].Radius = value + 2
-                glowCircles[2].Radius = value + 4
-            end
-        end
-    end)
-    yOffset = yOffset + 60
-
-    -- Aimlock Range slider
-    settings.aimlockRange = createSliderOption("AimlockRange", "Aimlock Range", 100, 2000, settings.aimlockRange, yOffset, function(value)
-        settings.aimlockRange = value
-    end)
-    yOffset = yOffset + 60
-
-    -- Smoothness slider
-    settings.smoothness = createSliderOption("Smoothness", "Aim Smoothness", 0.1, 0.9, settings.smoothness, yOffset, function(value)
-        settings.smoothness = value
-    end)
-    yOffset = yOffset + 60
-
-    -- Transparency slider
-    settings.transparency = createSliderOption("Transparency", "ESP Transparency", 0, 0.9, settings.transparency, yOffset, function(value)
-        settings.transparency = value
-        clearHighlights()
-    end)
-    yOffset = yOffset + 60
-
-    -- Color picker
-    createColorOption("Color", "ESP Color", settings.highlightColor, yOffset, function(color)
-        settings.highlightColor = color
-        clearHighlights()
-    end)
-    yOffset = yOffset + 35
-
-    -- Keybind info
-    local keybindInfo = Instance.new("TextLabel")
-    keybindInfo.Name = "KeybindInfo"
-    keybindInfo.Size = UDim2.new(1, -20, 0, 40)
-    keybindInfo.Position = UDim2.new(0, 10, 0, yOffset)
-    keybindInfo.BackgroundTransparency = 1
-    keybindInfo.Text = "Press 'U' to toggle GUI\nRight Click to aimlock"
-    keybindInfo.TextColor3 = Color3.fromRGB(170, 0, 255)
-    keybindInfo.Font = Enum.Font.GothamBold
-    keybindInfo.TextSize = 12
-    keybindInfo.TextYAlignment = Enum.TextYAlignment.Top
-    keybindInfo.Parent = scrollFrame
-end
-
--- Create FOV circle visualization with purple glow
-local function createFOVCircle()
-    if not settings.fovCircle then return end
+local function highlightPlayer(player)
+    if not espEnabled or player == game.Players.LocalPlayer then return end
     
-    fovCircleVisual = Drawing.new("Circle")
-    fovCircleVisual.Visible = settings.enabled
-    fovCircleVisual.Radius = settings.fovSize
-    fovCircleVisual.Color = settings.highlightColor
-    fovCircleVisual.Thickness = 2
-    fovCircleVisual.Filled = false
-    fovCircleVisual.Position = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
-    
-    -- Add glow effect by creating multiple circles
-    if settings.glowEffect then
-        local glowCircle1 = Drawing.new("Circle")
-        glowCircle1.Visible = settings.enabled
-        glowCircle1.Radius = fovCircleVisual.Radius + 2
-        glowCircle1.Color = settings.highlightColor
-        glowCircle1.Transparency = 0.7
-        glowCircle1.Thickness = 1
-        glowCircle1.Filled = false
-        glowCircle1.Position = fovCircleVisual.Position
-        
-        local glowCircle2 = Drawing.new("Circle")
-        glowCircle2.Visible = settings.enabled
-        glowCircle2.Radius = fovCircleVisual.Radius + 4
-        glowCircle2.Color = settings.highlightColor
-        glowCircle2.Transparency = 0.85
-        glowCircle2.Thickness = 1
-        glowCircle2.Filled = false
-        glowCircle2.Position = fovCircleVisual.Position
-        
-        table.insert(glowCircles, glowCircle1)
-        table.insert(glowCircles, glowCircle2)
+    local character = player.Character
+    if not character then
+        player.CharacterAdded:Connect(function(char)
+            highlightPlayer(player)
+        end)
+        return
     end
-end
-
--- Create glowing highlight for enemy
-local function createHighlight(character)
-    if not character or highlights[character] then return end
+    
+    if highlights[player] then
+        highlights[player]:Destroy()
+    end
     
     local highlight = Instance.new("Highlight")
-    highlight.Name = "EnemyHighlight"
-    highlight.FillColor = settings.highlightColor
-    highlight.FillTransparency = settings.transparency
-    highlight.OutlineColor = settings.highlightColor
-    highlight.OutlineTransparency = 0
+    highlight.Name = "PlayerHighlight"
+    highlight.FillColor = Color3.fromRGB(170, 0, 255)
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    
-    -- Add glow effect
-    if settings.glowEffect then
-        highlight.FillTransparency = settings.transparency + 0.4
-        highlight.OutlineTransparency = 0.3
-        
-        local glowHighlight = Instance.new("Highlight")
-        glowHighlight.FillColor = settings.highlightColor
-        glowHighlight.FillTransparency = settings.transparency + 0.55
-        glowHighlight.OutlineColor = settings.highlightColor
-        glowHighlight.OutlineTransparency = 0.5
-        glowHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        glowHighlight.Adornee = character
-        glowHighlight.Parent = character
-        
-        highlights[character] = {
-            main = highlight,
-            glow = glowHighlight
-        }
-    else
-        highlights[character] = {
-            main = highlight
-        }
-    end
-    
-    highlight.Adornee = character
+    highlight.FillTransparency = 0.5
     highlight.Parent = character
-    return highlight
+    highlights[player] = highlight
+    
+    player.CharacterAdded:Connect(function(newChar)
+        if espEnabled then
+            task.wait(1)
+            highlightPlayer(player)
+        end
+    end)
 end
 
--- Clear all highlights
-local function clearHighlights()
-    for character, highlightData in pairs(highlights) do
-        if highlightData.main and highlightData.main.Parent then
-            highlightData.main:Destroy()
-        end
-        if highlightData.glow and highlightData.glow.Parent then
-            highlightData.glow:Destroy()
+local function removeHighlights()
+    for player, highlight in pairs(highlights) do
+        if highlight then
+            highlight:Destroy()
         end
     end
     highlights = {}
 end
 
--- Check if player is on the same team
-local function isEnemy(player)
-    if not settings.teamCheck then return true end
-    if not game:GetService("Teams"):FindFirstChildOfClass("Team") then
-        return true -- No teams, everyone is enemy
-    end
+local function toggleESP()
+    espEnabled = not espEnabled
     
-    if localPlayer.Team and player.Team and localPlayer.Team == player.Team then
-        return false
-    end
-    
-    return true
-end
-
--- Find the closest enemy within FOV
-local function findClosestEnemy()
-    local closestPlayer = nil
-    local closestDistance = math.huge
-    local closestScreenDistance = math.huge
-    local cameraPosition = camera.CFrame.Position
-    
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= localPlayer and player.Character and isEnemy(player) then
-            local character = player.Character
-            local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-            local head = character:FindFirstChild("Head")
-            
-            if humanoidRootPart and head then
-                local humanoid = character:FindFirstChildOfClass("Humanoid")
-                if humanoid and humanoid.Health > 0 then
-                    -- Wall check
-                    if settings.wallCheck then
-                        local raycastParams = RaycastParams.new()
-                        raycastParams.FilterDescendantsInstances = {localPlayer.Character, character}
-                        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-                        local raycastResult = Workspace:Raycast(cameraPosition, (head.Position - cameraPosition).Unit * settings.aimlockRange, raycastParams)
-                        if raycastResult and raycastResult.Instance and not raycastResult.Instance:IsDescendantOf(character) then
-                            continue -- Wall is blocking
-                        end
-                    end
-                    
-                    local distance = (humanoidRootPart.Position - cameraPosition).Magnitude
-                    if distance <= settings.aimlockRange then
-                        local screenPoint, onScreen = camera:WorldToViewportPoint(head.Position)
-                        
-                        if onScreen then
-                            local mousePosition = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
-                            local screenPosition = Vector2.new(screenPoint.X, screenPoint.Y)
-                            local screenDistance = (mousePosition - screenPosition).Magnitude
-                            
-                            if screenDistance <= (fovCircleVisual and fovCircleVisual.Radius or 150) then
-                                if screenDistance < closestScreenDistance then
-                                    closestScreenDistance = screenDistance
-                                    closestDistance = distance
-                                    closestPlayer = player
-                                end
-                            end
-                        end
-                    end
-                end
-            end
+    if espEnabled then
+        for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+            highlightPlayer(player)
         end
-    end
-    
-    return closestPlayer
-end
-
--- Smooth aim function
-local function smoothAim(targetPosition)
-    local cameraCFrame = camera.CFrame
-    local direction = (targetPosition - cameraCFrame.Position).Unit
-    local lookAt = CFrame.new(cameraCFrame.Position, cameraCFrame.Position + direction)
-    
-    for i = 1, 3 do
-        camera.CFrame = cameraCFrame:Lerp(lookAt, 1 - settings.smoothness)
-        cameraCFrame = camera.CFrame
-        task.wait()
+        game:GetService("Players").PlayerAdded:Connect(highlightPlayer)
+        Rayfield:Notify({
+            Title = "ESP Enabled",
+            Content = "Players are now highlighted in purple",
+            Duration = 3,
+            Image = nil
+        })
+    else
+        removeHighlights()
+        Rayfield:Notify({
+            Title = "ESP Disabled",
+            Content = "Player highlights removed",
+            Duration = 3,
+            Image = nil
+        })
     end
 end
 
--- Handle character added
-local function onCharacterAdded(character)
-    if not settings.enabled then return end
-    local player = Players:GetPlayerFromCharacter(character)
-    if player and player ~= localPlayer and isEnemy(player) then
-        createHighlight(character)
+-- Aimbot Variables
+local aimbotEnabled = false
+local lockedPart = nil
+local renderConnection = nil
+local mouseConnections = {}
+
+local function cleanAimbotConnections()
+    if renderConnection then
+        renderConnection:Disconnect()
+        renderConnection = nil
     end
+    for _, conn in pairs(mouseConnections) do
+        conn:Disconnect()
+    end
+    mouseConnections = {}
+    lockedPart = nil
 end
 
--- Initialize
-local function initialize()
-    -- Set up player connections
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= localPlayer then
-            if player.Character then
-                onCharacterAdded(player.Character)
-            end
-            player.CharacterAdded:Connect(onCharacterAdded)
-        end
-    end
+local function setupAimbot()
+    local player = game:GetService("Players").LocalPlayer
+    local mouse = player:GetMouse()
+    local camera = workspace.CurrentCamera
     
-    Players.PlayerAdded:Connect(function(player)
-        player.CharacterAdded:Connect(onCharacterAdded)
-        if player.Character then
-            onCharacterAdded(player.Character)
-        end
-    end)
+    cleanAimbotConnections()
     
-    -- Create FOV circle
-    createFOVCircle()
-end
-
--- Mouse input for aimlock
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed or not settings.enabled then return end
-    
-    if input.UserInputType == settings.aimlockKey then
-        currentTarget = findClosestEnemy()
-        if currentTarget then
-            aimlocking = true
-            createHighlight(currentTarget.Character)
-            
-            local head = currentTarget.Character:FindFirstChild("Head")
-            if head then
-                smoothAim(head.Position)
-            end
-        end
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input, gameProcessed)
-    if input.UserInputType == settings.aimlockKey then
-        aimlocking = false
-        currentTarget = nil
-            end
-end)
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    
-    if input.KeyCode == Enum.KeyCode.U then
-        guiEnabled = not guiEnabled
-        if guiEnabled then
-            if not gui then
-                createGUI()
-            else
-                gui.Enabled = true
-            end
-            -- Move GUI to mouse position
-            local mousePos = UserInputService:GetMouseLocation()
-            gui.MainFrame.Position = UDim2.new(0, mousePos.X - 150, 0, mousePos.Y - 200)
-        elseif gui then
-            gui.Enabled = false
-        end
-    end
-end)
-
--- Main loop
-local connection
-connection = RunService.RenderStepped:Connect(function()
-    -- Update FOV circle position and glow
-    if fovCircleVisual and settings.enabled and settings.fovCircle then
-        fovCircleVisual.Visible = true
-        fovCircleVisual.Position = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
-        fovCircleVisual.Color = settings.highlightColor
+    table.insert(mouseConnections, mouse.Button2Down:Connect(function()
+        if not aimbotEnabled then return end
         
-        if settings.glowEffect then
-            for i, circle in ipairs(glowCircles) do
-                circle.Visible = true
-                circle.Position = fovCircleVisual.Position
-                circle.Color = settings.highlightColor
-                if i == 1 then
-                    circle.Radius = fovCircleVisual.Radius + 2
-                else
-                    circle.Radius = fovCircleVisual.Radius + 4
+        local closestDistance = math.huge
+        local closestHead = nil
+        
+        for _, otherPlayer in ipairs(game:GetService("Players"):GetPlayers()) do
+            if otherPlayer ~= player and otherPlayer.Character then
+                local head = otherPlayer.Character:FindFirstChild("Head")
+                if head then
+                    local distance = (head.Position - camera.CFrame.Position).Magnitude
+                    if distance < closestDistance then
+                        closestDistance = distance
+                        closestHead = head
+                    end
                 end
             end
         end
-    elseif fovCircleVisual then
-        fovCircleVisual.Visible = false
-        for _, circle in ipairs(glowCircles) do
-            circle.Visible = false
+        
+        if closestHead then
+            lockedPart = closestHead
+            renderConnection = game:GetService("RunService").RenderStepped:Connect(function()
+                if not aimbotEnabled then
+                    cleanAimbotConnections()
+                    return
+                end
+                if lockedPart and lockedPart.Parent then
+                    camera.CFrame = CFrame.new(camera.CFrame.Position, lockedPart.Position)
+                else
+                    cleanAimbotConnections()
+                end
+            end)
         end
-    end
-
- if aimlocking and currentTarget and currentTarget.Character and settings.enabled then
-        local head = currentTarget.Character:FindFirstChild("Head")
-        if head then
-            smoothAim(head.Position)
-        end
-    end
-end)
-
--- Initialize when ready
-if localPlayer.Character then
-    initialize()
+    end))
+    
+    table.insert(mouseConnections, mouse.Button2Up:Connect(function()
+        cleanAimbotConnections()
+    end))
 end
-localPlayer.CharacterAdded:Connect(initialize)
 
--- Cleanup function
-return function()
-    connection:Disconnect()
-    clearHighlights()
-    if fovCircleVisual then
-        fovCircleVisual:Remove()
-    end
-    for _, circle in ipairs(glowCircles) do
-        circle:Remove()
-    end
-    if gui then
-        gui:Destroy()
-    end
-    print("Script unloaded")
-end
+local AimbotButton = MainTab:CreateButton({
+   Name = "Aimbot Toggle",
+   Callback = function()
+      aimbotEnabled = not aimbotEnabled
+      
+      if aimbotEnabled then
+         setupAimbot()
+         Rayfield:Notify({
+            Title = "Aimbot Enabled",
+            Content = "Hold MB2 to lock onto heads",
+            Duration = 3,
+            Image = nil
+         })
+      else
+         cleanAimbotConnections()
+         Rayfield:Notify({
+            Title = "Aimbot Disabled",
+            Content = "Aimbot is now off",
+            Duration = 3,
+            Image = nil
+         })
+      end
+   end
+})
+
+local EspButton = MainTab:CreateButton({
+   Name = "ESP Toggle",
+   Callback = toggleESP
+})
+
+Rayfield:Notify({
+   Title = "👽OwareV1👽 Loaded",
+   Content = "Key verified successfully!",
+   Duration = 5,
+   Image = nil,
+   Actions = {
+      Ignore = {
+         Name = "Okay!",
+         Callback = function()
+            print("Script initialized")
+         end
+      },
+   },
+})
