@@ -300,6 +300,70 @@ local EspColorPicker = MainTab:CreateColorPicker({
 -----------------
 local MiscSection = MainTab:CreateSection("Misc")
 
+-- Spin Bot Variables
+local spinBotEnabled = false
+local spinBotSpeed = 10 -- rotations per second
+local spinBotConnection = nil
+
+-- Spin Bot Toggle
+local SpinBotToggle = MainTab:CreateToggle({
+   Name = "Spin Bot",
+   CurrentValue = false,
+   Flag = "Toggle5",
+   Callback = function(Value)
+       spinBotEnabled = Value
+       if spinBotEnabled then
+           -- Start spinning
+           if spinBotConnection then spinBotConnection:Disconnect() end
+           
+           spinBotConnection = game:GetService("RunService").RenderStepped:Connect(function(delta)
+               if spinBotEnabled then
+                   local character = game.Players.LocalPlayer.Character
+                   if character then
+                       local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+                       if humanoidRootPart then
+                           -- Rotate the character without affecting the camera
+                           humanoidRootPart.CFrame = humanoidRootPart.CFrame * CFrame.Angles(0, math.rad(spinBotSpeed * 360 * delta), 0)
+                       end
+                   end
+               end
+           end)
+           
+           Rayfield:Notify({
+               Title = "Spin Bot Enabled",
+               Content = "Your character is now spinning",
+               Duration = 3,
+               Image = nil
+           })
+       else
+           -- Stop spinning
+           if spinBotConnection then
+               spinBotConnection:Disconnect()
+               spinBotConnection = nil
+           end
+           Rayfield:Notify({
+               Title = "Spin Bot Disabled",
+               Content = "Spin bot is now off",
+               Duration = 3,
+               Image = nil
+           })
+       end
+   end,
+})
+
+-- Spin Bot Speed Slider
+local SpinBotSpeedSlider = MainTab:CreateSlider({
+   Name = "Spin Bot Speed",
+   Range = {1, 30},
+   Increment = 1,
+   Suffix = "rotations/sec",
+   CurrentValue = 10,
+   Flag = "Slider3",
+   Callback = function(Value)
+       spinBotSpeed = Value
+   end,
+})
+
 -- FOV Changer Variables
 local fovChangerEnabled = false
 local defaultFOV = 70
@@ -351,6 +415,37 @@ local FOVSlider = MainTab:CreateSlider({
    end,
 })
 
+-- Handle character respawns for spin bot
+game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function(character)
+    if spinBotEnabled then
+        if spinBotConnection then
+            spinBotConnection:Disconnect()
+        end
+        
+        -- Wait for character to fully load
+        local humanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
+        if humanoidRootPart then
+            spinBotConnection = game:GetService("RunService").RenderStepped:Connect(function(delta)
+                if spinBotEnabled then
+                    humanoidRootPart.CFrame = humanoidRootPart.CFrame * CFrame.Angles(0, math.rad(spinBotSpeed * 360 * delta), 0)
+                end
+            end)
+        end
+    end
+    
+    -- Reset FOV when character respawns if not changed
+    if not fovChanged then
+        game:GetService("Workspace").CurrentCamera.FieldOfView = defaultFOV
+    end
+end)
+
+-- Clean up spin bot when character is removed
+game:GetService("Players").LocalPlayer.CharacterRemoving:Connect(function()
+    if spinBotConnection then
+        spinBotConnection:Disconnect()
+    end
+end)
+
 -- Initial notification
 Rayfield:Notify({
    Title = "👽OwareV1👽 Loaded",
@@ -364,10 +459,3 @@ Rayfield:Notify({
       },
    },
 })
-
--- Reset FOV when script ends or is disabled
-game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function()
-    if not fovChanged then
-        game:GetService("Workspace").CurrentCamera.FieldOfView = defaultFOV
-    end
-end)
