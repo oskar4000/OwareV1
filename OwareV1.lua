@@ -41,6 +41,7 @@ local lockedPart = nil
 local connection = nil
 local mouseButton2DownConnection = nil
 local mouseButton2UpConnection = nil
+local teamCheckEnabled = false -- Added team check variable
 
 -- FOV Circle Variables
 local fovCircleEnabled = false
@@ -69,6 +70,16 @@ local function createFOVCircle()
         end
     end)
 end
+
+-- Team Check Toggle
+local TeamCheckToggle = MainTab:CreateToggle({
+    Name = "Team Check",
+    CurrentValue = false,
+    Flag = "TeamCheckToggle",
+    Callback = function(Value)
+        teamCheckEnabled = Value
+    end,
+})
 
 -- FOV Circle Toggle
 local FOVCircleToggle = MainTab:CreateToggle({
@@ -114,7 +125,7 @@ local AimbotButton = MainTab:CreateButton({
       if aimbotEnabled then
          Rayfield:Notify({
             Title = "Aimbot Enabled",
-            Content = "Hold MB2 to lock onto heads",
+            Content = "Hold MB2 to lock onto heads" .. (teamCheckEnabled and " (Team Check ON)" or ""),
             Duration = 3,
             Image = nil
          })
@@ -135,6 +146,11 @@ local AimbotButton = MainTab:CreateButton({
             
             for _, otherPlayer in ipairs(game:GetService("Players"):GetPlayers()) do
                if otherPlayer ~= player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("Humanoid") and otherPlayer.Character.Humanoid.Health > 0 then
+                  -- Team check logic
+                  if teamCheckEnabled and player.Team == otherPlayer.Team then
+                      continue
+                  end
+                  
                   local head = otherPlayer.Character:FindFirstChild("Head")
                   if head then
                      local screenPoint, onScreen = camera:WorldToViewportPoint(head.Position)
@@ -207,11 +223,19 @@ local ESPSection = MainTab:CreateSection("ESP")
 
 -- ESP Variables
 local espEnabled = false
+local teamEspEnabled = false -- Added team ESP variable
 local highlights = {}
+local teamHighlights = {} -- Added team highlights table
 local espColor = Color3.fromRGB(170, 0, 255) -- Default purple color
+local teamEspColor = Color3.fromRGB(0, 170, 255) -- Default blue color for team ESP
 
 local function highlightPlayer(player)
     if not espEnabled or player == game.Players.LocalPlayer then return end
+    
+    -- Skip if team ESP is enabled and player is on our team
+    if teamEspEnabled and player.Team == game.Players.LocalPlayer.Team then
+        return
+    end
     
     local character = player.Character
     if not character then
@@ -240,17 +264,63 @@ local function highlightPlayer(player)
     end)
 end
 
+local function highlightTeamPlayer(player)
+    if not teamEspEnabled or player == game.Players.LocalPlayer then return end
+    
+    -- Only highlight if on our team
+    if player.Team ~= game.Players.LocalPlayer.Team then
+        return
+    end
+    
+    local character = player.Character
+    if not character then
+        player.CharacterAdded:Connect(function(char)
+            highlightTeamPlayer(player)
+        end)
+        return
+    end
+    
+    if teamHighlights[player] then teamHighlights[player]:Destroy() end
+    
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "TeamPlayerHighlight"
+    highlight.FillColor = teamEspColor
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.FillTransparency = 0.5
+    highlight.Parent = character
+    teamHighlights[player] = highlight
+    
+    player.CharacterAdded:Connect(function(newChar)
+        if teamEspEnabled then
+            task.wait(1)
+            highlightTeamPlayer(player)
+        end
+    end)
+end
+
 local function removeHighlights()
     for player, highlight in pairs(highlights) do
         if highlight then highlight:Destroy() end
     end
     highlights = {}
+    
+    for player, highlight in pairs(teamHighlights) do
+        if highlight then highlight:Destroy() end
+    end
+    teamHighlights = {}
 end
 
 local function updateHighlightColors()
     for player, highlight in pairs(highlights) do
         if highlight and highlight:IsA("Highlight") then
             highlight.FillColor = espColor
+        end
+    end
+    
+    for player, highlight in pairs(teamHighlights) do
+        if highlight and highlight:IsA("Highlight") then
+            highlight.FillColor = teamEspColor
         end
     end
 end
@@ -284,6 +354,38 @@ local EspButton = MainTab:CreateButton({
    end
 })
 
+-- Team ESP Toggle Button
+local TeamEspButton = MainTab:CreateButton({
+   Name = "Team ESP Toggle",
+   Callback = function()
+      teamEspEnabled = not teamEspEnabled
+      
+      if teamEspEnabled then
+         for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+            highlightTeamPlayer(player)
+         end
+         game:GetService("Players").PlayerAdded:Connect(highlightTeamPlayer)
+         Rayfield:Notify({
+            Title = "Team ESP Enabled",
+            Content = "Teammates are now highlighted",
+            Duration = 3,
+            Image = nil
+         })
+      else
+         for player, highlight in pairs(teamHighlights) do
+            if highlight then highlight:Destroy() end
+         end
+         teamHighlights = {}
+         Rayfield:Notify({
+            Title = "Team ESP Disabled",
+            Content = "Teammate highlights removed",
+            Duration = 3,
+            Image = nil
+         })
+      end
+   end
+})
+
 -- ESP Color Picker
 local EspColorPicker = MainTab:CreateColorPicker({
     Name = "ESP Color",
@@ -291,6 +393,17 @@ local EspColorPicker = MainTab:CreateColorPicker({
     Flag = "ESPColorPicker",
     Callback = function(Value)
         espColor = Value
+        updateHighlightColors()
+    end
+})
+
+-- Team ESP Color Picker
+local TeamEspColorPicker = MainTab:CreateColorPicker({
+    Name = "Team ESP Color",
+    Color = teamEspColor,
+    Flag = "TeamESPColorPicker",
+    Callback = function(Value)
+        teamEspColor = Value
         updateHighlightColors()
     end
 })
