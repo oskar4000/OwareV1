@@ -30,20 +30,6 @@ Rayfield:LoadConfiguration()
 
 local MainTab = Window:CreateTab("💢Main💢", nil)
 
---[[ 
-    Section Structure:
-    1. Aimbot Section
-       - Aimbot Toggle
-       - FOV Circle Toggle
-       - FOV Circle Radius Slider
-    2. ESP Section
-       - ESP Toggle
-    3. Misc Section
-       - TriggerBot Toggle
-       - FOV Changer Toggle
-       - FOV Value Slider
-]]
-
 -------------------
 -- AIMBOT SECTION --
 -------------------
@@ -213,6 +199,170 @@ local AimbotButton = MainTab:CreateButton({
       end
    end
 })
+
+-------------------
+-- SILENT AIM SECTION --
+-------------------
+local SilentAimSection = MainTab:CreateSection("Silent Aim")
+
+-- Silent Aim Variables
+local silentAimEnabled = false
+local silentAimFOV = 100
+local silentAimCircle
+local silentAimCircleVisible = false
+local silentAimConnection
+
+-- Create the Silent Aim FOV circle
+local function createSilentAimFOVCircle()
+    if silentAimCircle then silentAimCircle:Remove() end
+    
+    local camera = workspace.CurrentCamera
+    silentAimCircle = Drawing.new("Circle")
+    silentAimCircle.Visible = silentAimCircleVisible
+    silentAimCircle.Thickness = 2
+    silentAimCircle.Color = Color3.fromRGB(255, 0, 0) -- Red color for distinction
+    silentAimCircle.Transparency = 1
+    silentAimCircle.Filled = false
+    silentAimCircle.Radius = silentAimFOV
+    silentAimCircle.Position = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
+    
+    game:GetService("RunService").RenderStepped:Connect(function()
+        if silentAimCircle then
+            silentAimCircle.Position = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
+            silentAimCircle.Radius = silentAimFOV
+        end
+    end)
+end
+
+-- Silent Aim FOV Circle Toggle
+local SilentAimFOVToggle = MainTab:CreateToggle({
+   Name = "Silent Aim FOV Circle",
+   CurrentValue = false,
+   Flag = "Toggle5",
+   Callback = function(Value)
+       silentAimCircleVisible = Value
+       if Value then
+           createSilentAimFOVCircle()
+       else
+           if silentAimCircle then
+               silentAimCircle:Remove()
+               silentAimCircle = nil
+           end
+       end
+   end,
+})
+
+-- Silent Aim FOV Radius Slider
+local SilentAimFOVSlider = MainTab:CreateSlider({
+   Name = "Silent Aim FOV Radius",
+   Range = {50, 300},
+   Increment = 10,
+   Suffix = "px",
+   CurrentValue = 100,
+   Flag = "Slider3",
+   Callback = function(Value)
+       silentAimFOV = Value
+       if silentAimCircle then
+           silentAimCircle.Radius = Value
+       end
+   end,
+})
+
+-- Silent Aim Toggle Button
+local SilentAimButton = MainTab:CreateButton({
+   Name = "Silent Aim Toggle",
+   Callback = function()
+      silentAimEnabled = not silentAimEnabled
+      
+      if silentAimEnabled then
+         Rayfield:Notify({
+            Title = "Silent Aim Enabled",
+            Content = "Your shots will hit enemies within FOV",
+            Duration = 3,
+            Image = nil
+         })
+         
+         -- Hook the necessary functions for Silent Aim
+         -- Note: This needs to be adapted to the specific game's shooting mechanics
+         local mt = getrawmetatable(game)
+         local oldNamecall = mt.__namecall
+         
+         setreadonly(mt, false)
+         
+         mt.__namecall = newcclosure(function(self, ...)
+             local method = getnamecallmethod()
+             local args = {...}
+             
+             if silentAimEnabled and method == "FireServer" then
+                 local player = game:GetService("Players").LocalPlayer
+                 local camera = workspace.CurrentCamera
+                 local closestDistance = math.huge
+                 local closestHead = nil
+                 
+                 -- Find closest head in FOV
+                 for _, otherPlayer in ipairs(game:GetService("Players"):GetPlayers()) do
+                     if otherPlayer ~= player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("Humanoid") and otherPlayer.Character.Humanoid.Health > 0 then
+                         local head = otherPlayer.Character:FindFirstChild("Head")
+                         if head then
+                             local screenPoint, onScreen = camera:WorldToViewportPoint(head.Position)
+                             
+                             -- Check if within Silent Aim FOV
+                             if silentAimCircleVisible then
+                                 if screenPoint.Z > 0 then -- Only if in front of camera
+                                     local screenPos = Vector2.new(screenPoint.X, screenPoint.Y)
+                                     local circleCenter = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
+                                     local distanceFromCenter = (screenPos - circleCenter).Magnitude
+                                     if distanceFromCenter > silentAimFOV then
+                                         continue -- Skip if outside FOV circle
+                                     end
+                                 else
+                                     continue -- Skip if behind camera
+                                 end
+                             end
+                             
+                             if onScreen then
+                                 local distance = (head.Position - camera.CFrame.Position).Magnitude
+                                 if distance < closestDistance then
+                                     closestDistance = distance
+                                     closestHead = head
+                                 end
+                             end
+                         end
+                     end
+                 end
+                 
+                 -- Modify the target if we found a valid head
+                 if closestHead then
+                     args[1] = closestHead.Position -- Modify the target position
+                 end
+             end
+             
+             return oldNamecall(self, unpack(args))
+         end)
+         
+         setreadonly(mt, true)
+         
+      else
+         -- Clean up when disabling
+         if silentAimConnection then silentAimConnection:Disconnect() end
+         Rayfield:Notify({
+            Title = "Silent Aim Disabled",
+            Content = "Silent Aim is now off",
+            Duration = 3,
+            Image = nil
+         })
+         
+         -- Restore original metatable
+         local mt = getrawmetatable(game)
+         if mt and mt.__namecall then
+             setreadonly(mt, false)
+             mt.__namecall = nil
+             setreadonly(mt, true)
+         end
+      end
+   end
+})
+
 ----------------
 -- ESP SECTION --
 ----------------
